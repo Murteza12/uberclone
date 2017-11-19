@@ -11,13 +11,17 @@ import MapKit
 import Firebase
 import FirebaseDatabase
 import CoreLocation
+import FirebaseAuth
 class RiderViewController: UIViewController, CLLocationManagerDelegate {
 
     @IBOutlet weak var callbtn: UIButton!
     @IBOutlet weak var map: MKMapView!
     var locationManager = CLLocationManager()
     var userLocation = CLLocationCoordinate2D()
+    var driverlocation = CLLocationCoordinate2D()
+
     var uberHasBeenCalled = false
+    var driverOnTheWay = false
     override func viewDidLoad() {
         super.viewDidLoad()
         locationManager.delegate = self
@@ -31,6 +35,29 @@ class RiderViewController: UIViewController, CLLocationManagerDelegate {
                 self.uberHasBeenCalled = true
                 self.callbtn.setTitle("Cancel Uber", for: .normal)
                 Database.database().reference().child("RiderReq").removeAllObservers()
+                
+                if let rideRequestDictionary = snapshot.value as? NSDictionary {
+                    if let driverLat = rideRequestDictionary["driverLat"] as? Double {
+                        if let driverLon = rideRequestDictionary["driverLon"] as? Double {
+                            self.driverlocation = CLLocationCoordinate2D(latitude: driverLat, longitude: driverLon)
+                            self.driverOnTheWay = true
+                            self.displayDriverAndRider()
+                            
+                            if let email = Auth.auth().currentUser?.email { Database.database().reference().child("RideRequests").queryOrdered(byChild: "email").queryEqual(toValue: email).observe(.childChanged, with: { (snapshot) in
+                                if let rideRequestDictionary = snapshot.value as? NSDictionary {
+                                    if let driverLat = rideRequestDictionary["driverLat"] as? Double {
+                                        if let driverLon = rideRequestDictionary["driverLon"] as? Double {
+                                            self.driverlocation = CLLocationCoordinate2D(latitude: driverLat, longitude: driverLon)
+                                            self.driverOnTheWay = true
+                                            self.displayDriverAndRider()
+                                        }
+                                    }
+                                }
+                            })
+                            }
+                        }
+                    }
+                }
             })
         }
     }
@@ -50,6 +77,32 @@ class RiderViewController: UIViewController, CLLocationManagerDelegate {
         print("logitue is \(userLocation.longitude)    latitude is \(userLocation.longitude)")
     }
 
+    //display rider and driver
+    func displayDriverAndRider() {
+        let driverCLLocation = CLLocation(latitude: driverlocation.latitude, longitude: driverlocation.longitude)
+        let riderCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+        let distance = driverCLLocation.distance(from: riderCLLocation) / 1000
+        let roundedDistance = round(distance * 100) / 100
+        callbtn.setTitle("Your driver is \(roundedDistance)km away!", for: .normal)
+        map.removeAnnotations(map.annotations)
+        
+        let latDelta = abs(driverlocation.latitude - userLocation.latitude) * 2 + 0.005
+        let lonDelta = abs(driverlocation.longitude - userLocation.longitude) * 2 + 0.005
+        
+        let region = MKCoordinateRegion(center: userLocation, span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta))
+        map.setRegion(region, animated: true)
+        
+        let riderAnno = MKPointAnnotation()
+        riderAnno.coordinate = userLocation
+        riderAnno.title = "Your Location"
+        map.addAnnotation(riderAnno)
+        
+        let driverAnno = MKPointAnnotation()
+        driverAnno.coordinate = driverlocation
+        driverAnno.title = "Your Driver"
+        map.addAnnotation(driverAnno)
+    }
+    
     @IBAction func callanuber(_ sender: Any) {
         if let email = Auth.auth().currentUser?.email {
             

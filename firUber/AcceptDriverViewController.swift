@@ -26,6 +26,8 @@ class AcceptDriverViewController: UIViewController , CLLocationManagerDelegate {
         annotation.coordinate = requestlocation
         annotation.title = email
         map.addAnnotation(annotation)
+        print(" driverlongitude \(driverlocation.longitude)  --  driverlatitde  \(driverlocation.latitude)")
+          print(" Request longitude \(driverlocation.longitude)  --  Request latitde  \(driverlocation.latitude)")
 
        
     }
@@ -34,6 +36,7 @@ class AcceptDriverViewController: UIViewController , CLLocationManagerDelegate {
         Database.database().reference().child("RiderReq").queryOrdered(byChild: "email").queryEqual(toValue: email).observe(.childAdded) { (snapshot) in
             snapshot.ref.updateChildValues(["driverLat":self.driverlocation.latitude, "driverLon":self.driverlocation.longitude])
             Database.database().reference().child("RiderReq").removeAllObservers()
+            print("driver lat \(self.driverlocation.latitude)   ----- long    \(self.driverlocation.longitude)")
         }
         
         // Give directions
